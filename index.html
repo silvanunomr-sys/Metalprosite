@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MetalPro — Gestão de Oficina, testada numa oficina real</title>
+<meta name="description" content="Não construímos um software e fomos à procura de oficinas para o testar. Já tínhamos a oficina.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1113; --panel:#1A1E22; --panel2:#20252A; --line:#2C333A;
+    --steel:#8C99A3; --steel-dim:#5B656D; --text:#F2F3F5; --text-dim:#AEB6BC;
+    --ember:#C7361B; --torch:#FF8A1E; --spark:#FFD166;
+    --arc:#8FE3FF; --arc-dim:rgba(143,227,255,.15);
+    --glow:rgba(255,138,30,.28);
+    --ok:#6FAE5C;
+    --radius:4px;
+    --grad-hot: linear-gradient(90deg,var(--ember),var(--torch) 55%,var(--spark));
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',sans-serif; line-height:1.6; overflow-x:hidden;}
+  h1,h2,h3,.display{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.5px; font-weight:700;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;}
+  .wrap{max-width:1120px; margin:0 auto; padding:0 24px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--torch); display:flex; align-items:center; gap:8px;}
+  .eyebrow::before{content:""; width:18px; height:2px; background:var(--grad-hot); display:inline-block;}
+
+  .hotgrad{background:var(--grad-hot); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .steelgrad{background:linear-gradient(180deg,#EDEFF1,#9AA5AC); -webkit-background-clip:text; background-clip:text; color:transparent;}
+
+  .plate{position:relative; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);}
+  .plate::before,.plate::after{content:""; position:absolute; width:7px; height:7px; border-radius:50%; background:#3A4249; box-shadow:inset 0 1px 2px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.05); top:10px; left:10px;}
+  .plate::after{left:auto; right:10px;}
+
+  nav{position:sticky; top:0; z-index:50; background:rgba(15,17,19,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line);}
+  nav .inner{display:flex; align-items:center; justify-content:space-between; padding:16px 24px; max-width:1120px; margin:0 auto;}
+  .logo{display:flex; align-items:center; gap:10px; font-family:'Oswald',sans-serif; font-weight:700; font-size:20px; letter-spacing:.5px;}
+  .logo .mark{width:30px; height:30px; background:var(--grad-hot); border-radius:3px; display:grid; place-items:center; color:#14171A; font-weight:700;}
+  .navlinks{display:flex; gap:28px; font-size:14px; color:var(--text-dim);}
+  .navlinks a:hover{color:var(--text);}
+  .nav-right{display:flex; align-items:center; gap:14px;}
+  select#langSwitch{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:3px; padding:5px 8px; font-size:12px; font-family:'IBM Plex Mono',monospace;}
+  .btn{display:inline-flex; align-items:center; gap:8px; padding:12px 24px; border-radius:3px; font-weight:600; font-size:14px; cursor:pointer; border:none; font-family:'IBM Plex Sans',sans-serif; transition:transform .15s ease, box-shadow .15s ease;}
+  .btn-primary{background:var(--grad-hot); color:#14171A; box-shadow:0 4px 18px var(--glow);}
+  .btn-primary:hover{transform:translateY(-2px); box-shadow:0 8px 28px var(--glow);}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--steel);}
+
+  /* HERO with sparks */
+  .hero{padding:80px 0 60px; position:relative; overflow:hidden;}
+  #sparkCanvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; opacity:.9;}
+  .hero-inner{position:relative; z-index:2;}
+  .hero-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:56px; align-items:center;}
+  .status-badge{display:inline-flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:1.5px; color:var(--ok); border:1px solid rgba(111,174,92,.35); background:rgba(111,174,92,.08); padding:5px 10px; border-radius:3px; margin-bottom:22px;}
+  .status-badge .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .hero h1{font-size:50px; line-height:1.05; margin-bottom:24px;}
+  .hero p.lead{font-size:18px; color:var(--text-dim); max-width:480px; margin-bottom:34px;}
+  .hero-ctas{display:flex; gap:14px; margin-bottom:38px; flex-wrap:wrap;}
+  .hero-proof{display:flex; gap:28px; font-size:13px; color:var(--steel);}
+  .hero-proof strong{color:var(--text); font-family:'IBM Plex Mono',monospace; display:block; font-size:22px;}
+
+  .traveler-card{padding:0; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .tc-head{display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--line); background:var(--panel2);}
+  .tc-head .code{font-family:'IBM Plex Mono',monospace; color:var(--torch); font-weight:600; font-size:14px;}
+  .tc-head .tag{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:1px; padding:3px 8px; border-radius:2px; background:rgba(255,138,30,.15); color:var(--torch);}
+  .tc-body{padding:18px;}
+  .tc-row{display:flex; justify-content:space-between; font-size:12px; color:var(--text-dim); margin-bottom:14px;}
+  .tc-row b{color:var(--text); font-weight:500;}
+  .tc-ops{display:flex; flex-direction:column; gap:10px;}
+  .op-line{display:flex; align-items:center; gap:10px; font-size:13px;}
+  .op-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0; border:2px solid var(--steel-dim); background:transparent;}
+  .op-dot.done{background:var(--ok); border-color:var(--ok);}
+  .op-dot.active{background:var(--torch); border-color:var(--torch); box-shadow:0 0 0 4px var(--glow); animation:pulse 1.4s infinite;}
+  .op-name{flex:1; color:var(--text-dim);}
+  .op-line.active .op-name, .op-line.done .op-name{color:var(--text);}
+  .op-timer{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--steel);}
+  .op-line.active .op-timer{color:var(--torch);}
+  .tc-progress{height:4px; background:var(--panel2); border-radius:2px; overflow:hidden; margin:16px 0 6px;}
+  .tc-progress-fill{height:100%; background:var(--grad-hot); width:38%; transition:width 1s linear;}
+  .tc-scan{display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; margin-top:10px; border:1px dashed var(--line); border-radius:3px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--steel);}
+
+  section{padding:96px 0;}
+  .section-head{max-width:640px; margin-bottom:56px;}
+  .section-head h2{font-size:34px; margin:14px 0 16px;}
+  .section-head p{color:var(--text-dim); font-size:16px;}
+
+  .problem-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+  .problem-item{background:var(--panel); padding:30px 26px;}
+  .problem-item .num{font-family:'IBM Plex Mono',monospace; color:var(--steel-dim); font-size:13px; margin-bottom:12px;}
+  .problem-item h3{font-size:17px; text-transform:none; letter-spacing:0; margin-bottom:10px;}
+  .problem-item p{font-size:14px; color:var(--text-dim);}
+
+  /* MANIFESTO full-bleed */
+  .manifesto{position:relative; padding:140px 0; background:radial-gradient(ellipse at 30% 20%, rgba(255,138,30,.10), transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(143,227,255,.06), transparent 50%), var(--bg); border-top:1px solid var(--line); border-bottom:1px solid var(--line); text-align:center; overflow:hidden;}
+  .manifesto .eyebrow{justify-content:center; margin-bottom:28px;}
+  .manifesto h2{font-size:46px; line-height:1.2; max-width:900px; margin:0 auto; text-transform:uppercase;}
+  .manifesto .cite{margin-top:28px; color:var(--steel); font-family:'IBM Plex Mono',monospace; font-size:13px;}
+
+  /* PHOTO PLACEHOLDER */
+  .photo-zone{position:relative; aspect-ratio:16/8; border-radius:var(--radius); border:1px dashed var(--line); background:linear-gradient(135deg, var(--panel), var(--panel2)); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--steel-dim); overflow:hidden;}
+  .photo-zone .ph-icon{font-size:32px; opacity:.5;}
+  .photo-zone .ph-label{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.5px; text-align:center; padding:0 20px;}
+  .photo-zone::after{content:""; position:absolute; inset:0; background:
+    repeating-linear-gradient(45deg, rgba(255,138,30,.03) 0 2px, transparent 2px 14px);}
+
+  .blueprint-panel{position:relative; background:var(--bg); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+  .lathe-illustration{width:100%; height:auto; display:block;}
+  .blueprint-caption{padding:12px 18px; border-top:1px solid var(--line); font-size:11px; color:var(--steel-dim); background:var(--panel);}
+  .tags-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px;}
+  .feat-tag{position:relative; padding:26px 24px 24px;}
+  .feat-tag .hole{position:absolute; top:18px; left:18px; width:12px; height:12px; border-radius:50%; background:var(--bg); border:1px solid var(--line); box-shadow:inset 0 2px 3px rgba(0,0,0,.5);}
+  .feat-tag .icon{font-size:24px; margin-bottom:14px; margin-left:26px;}
+  .feat-tag h3{font-size:17px; text-transform:none; letter-spacing:0; margin-bottom:8px; margin-left:26px;}
+  .feat-tag p{font-size:14px; color:var(--text-dim); margin-left:26px;}
+  .feat-tag:hover{border-color:var(--torch); box-shadow:0 8px 30px rgba(255,138,30,.12);}
+
+  .story{display:grid; grid-template-columns:.9fr 1.1fr; gap:56px; align-items:center;}
+  .story-plate{padding:32px;}
+  .story-plate p{color:var(--text-dim); font-size:15px; margin-bottom:14px;}
+  .story-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; margin-top:20px;}
+  .stat{background:var(--panel2); padding:18px; text-align:center;}
+  .stat b{display:block; font-family:'IBM Plex Mono',monospace; font-size:22px;}
+  .stat b.hot{background:var(--grad-hot); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .stat span{font-size:11px; color:var(--steel); text-transform:uppercase; letter-spacing:.5px;}
+
+  .price-plate{padding:36px; text-align:center; position:relative;}
+  .price-plate.featured{border-color:var(--torch); box-shadow:0 0 0 1px var(--torch), 0 20px 50px rgba(255,138,30,.1);}
+  .price-plate .plan{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:2px; color:var(--steel); text-transform:uppercase; margin-bottom:14px;}
+  .price-plate .amount{font-family:'Oswald',sans-serif; font-size:42px; font-weight:700; margin-bottom:4px;}
+  .price-plate .amount span{font-size:15px; color:var(--text-dim); font-weight:400;}
+  .price-plate ul{list-style:none; text-align:left; margin:24px 0; display:flex; flex-direction:column; gap:10px;}
+  .price-plate li{font-size:14px; color:var(--text-dim); display:flex; gap:10px;}
+  .price-plate li::before{content:"✓"; color:var(--ok); font-weight:700;}
+  .pricing-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px;}
+
+  .final-cta{text-align:center; padding:120px 0; position:relative; background:radial-gradient(ellipse at 50% 100%, rgba(255,138,30,.10), transparent 60%);}
+  .final-cta h2{font-size:40px; margin-bottom:18px; max-width:760px; margin-left:auto; margin-right:auto;}
+  .final-cta p{color:var(--text-dim); font-size:17px; margin-bottom:36px;}
+
+  footer{border-top:1px solid var(--line); padding:36px 0; font-size:13px; color:var(--steel-dim); display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;}
+
+  html[data-lang="ar"] body{direction:rtl;}
+
+  @media (max-width:860px){
+    .hero-grid, .story{grid-template-columns:1fr;}
+    .problem-grid{grid-template-columns:1fr;}
+    nav .navlinks{display:none;}
+    .hero h1{font-size:36px;}
+    .manifesto h2{font-size:30px;}
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="gradIcon" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF8A1E"/><stop offset="100%" stop-color="#FFD166"/></linearGradient></defs></svg>
+
+<canvas id="sparkCanvasGlobal" style="position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:1; opacity:.5;"></canvas>
+
+<nav>
+  <div class="inner">
+    <div class="logo"><span class="mark">M</span>MetalPro</div>
+    <div class="navlinks">
+      <a href="#problema" data-i18n="nav.problema">O Problema</a>
+      <a href="#diferenca" data-i18n="nav.diferenca">A Diferença</a>
+      <a href="#funcionalidades" data-i18n="nav.funcionalidades">Funcionalidades</a>
+      <a href="#precos" data-i18n="nav.precos">Preços</a>
+    </div>
+    <div class="nav-right">
+      <select id="langSwitch">
+        <option value="pt">🇵🇹 PT</option>
+        <option value="en">🇬🇧 EN</option>
+      </select>
+      <a href="#cta" class="btn btn-primary" data-i18n="nav.cta">Começar Agora</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <canvas id="sparkCanvas"></canvas>
+  <div class="wrap hero-grid hero-inner">
+    <div>
+      <div class="status-badge"><span class="dot"></span> <span data-i18n="hero.badge">EM PRODUÇÃO NUMA OFICINA REAL</span></div>
+      <h1 data-i18n-html="hero.h1full">A tua oficina já sabe<br>fazer peças perfeitas.<br><span class="hotgrad">Agora vai saber geri-las assim.</span></h1>
+      <p class="lead" data-i18n="hero.lead">O MetalPro nasceu dentro de uma empresa de metalomecânica a sério — não numa sala de reuniões. Cada funcionalidade resolve um problema que já ardeu no chão de fábrica.</p>
+      <div class="hero-ctas">
+        <a href="#cta" class="btn btn-primary" data-i18n="hero.cta1">Começar Agora →</a>
+        <a href="#diferenca" class="btn btn-ghost" data-i18n="hero.cta2">Ver como funciona</a>
+      </div>
+      <div class="hero-proof">
+        <div><strong>17</strong><span data-i18n="hero.proof1">idiomas suportados</span></div>
+        <div><strong class="mono">OF · OR</strong><span data-i18n="hero.proof2">rastreio por QR</span></div>
+        <div><strong>100%</strong><span data-i18n="hero.proof3">testado em oficina real</span></div>
+      </div>
+    </div>
+
+    <div class="plate traveler-card" id="travelerCard">
+      <div class="tc-head">
+        <span class="code">OF-2026-014</span>
+        <span class="tag" data-i18n="hero.tag">EM PRODUÇÃO</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-row"><span data-i18n="hero.cliente">Cliente</span><b>Indústria X</b></div>
+        <div class="tc-row"><span data-i18n="hero.peca">Peça</span><b>Veio de transmissão</b></div>
+        <div class="tc-ops" id="opsList"></div>
+        <div class="tc-progress"><div class="tc-progress-fill" id="progressFill"></div></div>
+        <div class="tc-scan">📷 <span data-i18n="hero.scan">QR lido · Torno CNC 01</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="problema">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="problem.eyebrow">O Problema</div>
+      <h2 data-i18n="problem.h2">Gerir uma oficina "às cegas" custa dinheiro todos os dias</h2>
+      <p data-i18n="problem.p">Papel, Excel e software genérico não foram feitos para o chão de fábrica. O resultado é sempre o mesmo.</p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-item">
+        <div class="num mono">01</div>
+        <h3 data-i18n="problem.i1h">O telefone toca antes de tu saberes</h3>
+        <p data-i18n="problem.i1p">É o cliente a perguntar pela encomenda atrasada — e é a primeira vez que ouves falar do atraso.</p>
+      </div>
+      <div class="problem-item">
+        <div class="num mono">02</div>
+        <h3 data-i18n="problem.i2h">A máquina para às 18h de sexta</h3>
+        <p data-i18n="problem.i2p">Falta material para amanhã, e só descobres agora — quando já não há tempo para resolver.</p>
+      </div>
+      <div class="problem-item">
+        <div class="num mono">03</div>
+        <h3 data-i18n="problem.i3h">Trabalhas mais e ganhas na mesma</h3>
+        <p data-i18n="problem.i3p">Sem dados reais, cada orçamento é uma aposta às cegas — e às vezes a aposta perde-se.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="manifesto" id="diferenca">
+  <div class="wrap">
+    <div class="eyebrow" data-i18n="diff.eyebrow">A Diferença</div>
+    <h2 data-i18n-html="diff.h2full">Não perguntámos a oficinas<br>o que elas precisavam.<br><span class="hotgrad">Já geríamos uma — e construímos o que nos fazia falta.</span></h2>
+    <div class="cite" data-i18n="diff.cite">— Fundador do MetalPro, dono de empresa de metalomecânica</div>
+  </div>
+</section>
+
+<section id="oficina-real">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="photo.eyebrow">A Prova</div>
+      <h2 data-i18n="photo.h2">Não é uma maquete. É a nossa oficina.</h2>
+    </div>
+    <div class="blueprint-panel">
+      <svg viewBox="0 0 900 420" class="lathe-illustration" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="gridPattern" width="30" height="30" patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#2C333A" stroke-width="1"/>
+          </pattern>
+          <linearGradient id="hotStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#C7361B"/>
+            <stop offset="55%" stop-color="#FF8A1E"/>
+            <stop offset="100%" stop-color="#FFD166"/>
+          </linearGradient>
+        </defs>
+        <rect width="900" height="420" fill="url(#gridPattern)"/>
+        <!-- machine bed -->
+        <rect x="90" y="290" width="680" height="26" rx="3" fill="#20252A" stroke="#3A4249" stroke-width="2"/>
+        <rect x="120" y="270" width="60" height="24" fill="#20252A" stroke="#3A4249" stroke-width="2"/>
+        <!-- headstock -->
+        <rect x="120" y="170" width="110" height="100" rx="4" fill="#1A1E22" stroke="#8C99A3" stroke-width="2"/>
+        <circle cx="245" cy="220" r="46" fill="#1A1E22" stroke="url(#hotStroke)" stroke-width="3"/>
+        <circle cx="245" cy="220" r="30" fill="none" stroke="#5B656D" stroke-width="2" stroke-dasharray="4 5"/>
+        <!-- workpiece spinning -->
+        <ellipse cx="245" cy="220" rx="10" ry="10" fill="#FFD166"/>
+        <rect x="245" y="212" width="230" height="16" fill="#8C99A3" opacity=".85"/>
+        <!-- tailstock -->
+        <rect x="600" y="195" width="70" height="50" rx="3" fill="#1A1E22" stroke="#8C99A3" stroke-width="2"/>
+        <line x1="600" y1="220" x2="475" y2="220" stroke="#5B656D" stroke-width="3"/>
+        <!-- tool post + bit -->
+        <rect x="330" y="245" width="34" height="34" fill="#1A1E22" stroke="url(#hotStroke)" stroke-width="2"/>
+        <line x1="347" y1="245" x2="347" y2="222" stroke="url(#hotStroke)" stroke-width="4"/>
+        <!-- sparks at cutting point -->
+        <g id="latheSparks"></g>
+        <!-- control panel -->
+        <rect x="700" y="120" width="130" height="170" rx="4" fill="#1A1E22" stroke="#3A4249" stroke-width="2"/>
+        <rect x="714" y="136" width="102" height="60" rx="2" fill="#0F1113" stroke="#FF8A1E" stroke-width="1.5"/>
+        <text x="765" y="170" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#FF8A1E">OF-014</text>
+        <circle cx="730" cy="220" r="9" fill="none" stroke="#6FAE5C" stroke-width="2"/>
+        <circle cx="760" cy="220" r="9" fill="none" stroke="#8C99A3" stroke-width="2"/>
+        <circle cx="790" cy="220" r="9" fill="none" stroke="#8C99A3" stroke-width="2"/>
+        <!-- legs -->
+        <rect x="140" y="316" width="16" height="40" fill="#20252A"/>
+        <rect x="700" y="316" width="16" height="40" fill="#20252A"/>
+        <!-- dimension lines (blueprint feel) -->
+        <line x1="90" y1="370" x2="770" y2="370" stroke="#5B656D" stroke-width="1"/>
+        <line x1="90" y1="364" x2="90" y2="376" stroke="#5B656D" stroke-width="1"/>
+        <line x1="770" y1="364" x2="770" y2="376" stroke="#5B656D" stroke-width="1"/>
+        <text x="430" y="392" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#5B656D">TORNO CNC · EIXO X 680mm</text>
+      </svg>
+      <div class="blueprint-caption mono" data-i18n="photo.caption">// esquema ilustrativo — a tua oficina real fica ainda melhor aqui</div>
+    </div>
+  </div>
+</section>
+
+<section id="funcionalidades">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="feat.eyebrow">Funcionalidades</div>
+      <h2 data-i18n="feat.h2">Tudo o que uma oficina precisa, num só sítio</h2>
+      <p data-i18n="feat.p">Sem integrações complicadas nem múltiplas ferramentas soltas.</p>
+    </div>
+    <div class="tags-grid">
+      <div class="plate feat-tag"><div class="hole"></div><div class="icon"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="url(#gradIcon)" stroke-width="1.8"><path d="M21 6a5 5 0 0 0-6.9 5.9L5 21l3 3 9.1-9.1A5 5 0 0 0 26 8.9l-3.6 3.6-3-3L23 6a5 5 0 0 0-2-.4z" stroke-linejoin="round" stroke-linecap="round"/></svg></div><h3 data-i18n="feat.f1h">Ordens de Fabrico e Reparação</h3><p data-i18n="feat.f1p">Sabe sempre o que está atrasado antes de o cliente ligar a perguntar.</p></div>
+      <div class="plate feat-tag"><div class="hole"></div><div class="icon"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="url(#gradIcon)" stroke-width="1.8"><rect x="4" y="6" width="24" height="20" rx="2"/><path d="M4 6h6l2-3h8l2 3h6"/><circle cx="16" cy="16" r="5.5"/><path d="M9 4v3M23 4v3" stroke-linecap="round"/></svg></div><h3 data-i18n="feat.f2h">Rastreio por QR</h3><p data-i18n="feat.f2p">Cada peça acompanhada operação a operação, lida com a câmara do telemóvel.</p></div>
+      <div class="plate feat-tag"><div class="hole"></div><div class="icon"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="url(#gradIcon)" stroke-width="1.8" stroke-linejoin="round"><path d="M16 4 4 9v14l12 5 12-5V9z"/><path d="M4 9l12 5 12-5M16 14v14"/></svg></div><h3 data-i18n="feat.f3h">Stock e Consumíveis</h3><p data-i18n="feat.f3p">Alertas antes de faltar, não depois.</p></div>
+      <div class="plate feat-tag"><div class="hole"></div><div class="icon"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="url(#gradIcon)" stroke-width="1.8"><rect x="4" y="10" width="24" height="16" rx="2"/><circle cx="16" cy="18" r="4"/><path d="M4 14h3M25 14h3M4 22h3M25 22h3" stroke-linecap="round"/></svg></div><h3 data-i18n="feat.f4h">Orçamentos com custo real</h3><p data-i18n="feat.f4p">Calculadora de remoção de material ligada ao tarifário — preço com dados, não com "achismo".</p></div>
+      <div class="plate feat-tag"><div class="hole"></div><div class="icon"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="url(#gradIcon)" stroke-width="1.8" stroke-linecap="round"><path d="M6 26V14M16 26V6M26 26v-9"/><path d="M3 26h26"/></svg></div><h3 data-i18n="feat.f5h">Relatórios que decidem por si</h3><p data-i18n="feat.f5p">Produtividade, faturação, clientes-topo — sem exportar nada para Excel.</p></div>
+      <div class="plate feat-tag"><div class="hole"></div><div class="icon"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="url(#gradIcon)" stroke-width="1.8"><rect x="6" y="11" width="20" height="15" rx="3"/><circle cx="12.5" cy="18.5" r="1.6" fill="url(#gradIcon)" stroke="none"/><circle cx="19.5" cy="18.5" r="1.6" fill="url(#gradIcon)" stroke="none"/><path d="M16 11V6M12 6h8" stroke-linecap="round"/><path d="M10 26v2M22 26v2"/></svg></div><h3 data-i18n="feat.f6h">Assistente de IA sempre presente</h3><p data-i18n="feat.f6p">Dúvidas respondidas na hora, dentro da própria app — sem esperar por suporte.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="prova">
+  <div class="wrap story">
+    <div class="plate story-plate">
+      <div class="eyebrow" data-i18n="story.eyebrow">Prova, Não Promessa</div>
+      <p data-i18n="story.p1">O MetalPro corre todos os dias na oficina que o criou — não é uma demonstração, é a ferramenta de trabalho real.</p>
+      <p data-i18n="story.p2">Os primeiros clientes têm acesso direto a quem construiu o produto, e ao histórico completo de tudo o que já foi corrigido e melhorado com uso real.</p>
+      <div class="story-stats">
+        <div class="stat"><b class="hot">17</b><span data-i18n="story.s1">Idiomas</span></div>
+        <div class="stat"><b class="hot mono">QR</b><span data-i18n="story.s2">Rastreio</span></div>
+        <div class="stat"><b class="hot">1</b><span data-i18n="story.s3">Fornecedor só</span></div>
+      </div>
+    </div>
+    <div class="plate" style="padding:32px;">
+      <div class="eyebrow" data-i18n="story.eyebrow2">Como Começar</div>
+      <div style="margin-top:20px; display:flex; flex-direction:column; gap:18px;">
+        <div style="display:flex; gap:14px;"><div class="mono" style="color:var(--torch); font-weight:600;">01</div><div><b data-i18n="story.step1h">Cria a tua oficina</b><div style="color:var(--text-dim); font-size:14px;" data-i18n="story.step1p">Email e password — sem cartão de crédito, sem comerciais.</div></div></div>
+        <div style="display:flex; gap:14px;"><div class="mono" style="color:var(--torch); font-weight:600;">02</div><div><b data-i18n="story.step2h">O assistente de IA guia-te</b><div style="color:var(--text-dim); font-size:14px;" data-i18n="story.step2p">Configuração assistida em tempo real, no teu idioma.</div></div></div>
+        <div style="display:flex; gap:14px;"><div class="mono" style="color:var(--torch); font-weight:600;">03</div><div><b data-i18n="story.step3h">A tua equipa entra por PIN</b><div style="color:var(--text-dim); font-size:14px;" data-i18n="story.step3p">Cada operário com o seu acesso, no chão de fábrica.</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="precos">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="price.eyebrow">Preços</div>
+      <h2 data-i18n="price.h2">Um preço por oficina, não por pessoa</h2>
+      <p data-i18n="price.p">Não penalizamos quem quer que toda a equipa use a ferramenta.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="plate price-plate">
+        <div class="plan" data-i18n="price.plan1">Arranque</div>
+        <div class="amount">€0<span data-i18n="price.per1"> · 30 dias</span></div>
+        <ul>
+          <li data-i18n="price.f1">Todos os módulos incluídos</li>
+          <li data-i18n="price.f2">Utilizadores ilimitados</li>
+          <li data-i18n="price.f3">Assistente de IA incluído</li>
+        </ul>
+        <a href="#cta" class="btn btn-ghost" style="width:100%; justify-content:center;" data-i18n="price.cta1">Experimentar Grátis</a>
+      </div>
+      <div class="plate price-plate featured">
+        <div class="plan" data-i18n="price.plan2">Oficina</div>
+        <div class="amount mono">€—<span data-i18n="price.per2"> /mês</span></div>
+        <ul>
+          <li data-i18n="price.f4">Tudo do plano Arranque</li>
+          <li data-i18n="price.f5">Suporte prioritário</li>
+          <li data-i18n="price.f6">Exportação SAF-T/CSV</li>
+        </ul>
+        <a href="#cta" class="btn btn-primary" style="width:100%; justify-content:center;" data-i18n="price.cta2">Começar Agora</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cta" class="final-cta">
+  <div class="wrap">
+    <div class="eyebrow" style="justify-content:center;" data-i18n="final.eyebrow">Pronto?</div>
+    <h2 data-i18n-html="final.h2full">A tua oficina já é boa no que faz.<br><span class="hotgrad">Agora deixa que se veja nos números.</span></h2>
+    <p data-i18n="final.p">Cria a tua conta em menos de 2 minutos. Sem comerciais, sem cartão de crédito.</p>
+    <a href="#" class="btn btn-primary" style="font-size:16px; padding:15px 34px;" data-i18n="final.cta">Começar Agora →</a>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div>© 2026 MetalPro — <span data-i18n="footer.tag">Feito dentro de uma oficina real.</span></div>
+  <div class="mono">victum.pt</div>
+</footer>
+
+<script>
+const I18N = {
+  pt: {
+    "nav.problema":"O Problema","nav.diferenca":"A Diferença","nav.funcionalidades":"Funcionalidades","nav.precos":"Preços","nav.cta":"Começar Agora",
+    "hero.badge":"EM PRODUÇÃO NUMA OFICINA REAL",
+    "hero.h1full":"A tua oficina já sabe<br>fazer peças perfeitas.<br><span class=\"hotgrad\">Agora vai saber geri-las assim.</span>",
+    "hero.lead":"O MetalPro nasceu dentro de uma empresa de metalomecânica a sério — não numa sala de reuniões. Cada funcionalidade resolve um problema que já ardeu no chão de fábrica.",
+    "hero.cta1":"Começar Agora →","hero.cta2":"Ver como funciona",
+    "hero.proof1":"idiomas suportados","hero.proof2":"rastreio por QR","hero.proof3":"testado em oficina real",
+    "hero.tag":"EM PRODUÇÃO","hero.cliente":"Cliente","hero.peca":"Peça","hero.scan":"QR lido · Torno CNC 01",
+    "problem.eyebrow":"O Problema","problem.h2":"Gerir uma oficina \u201c\u00e0s cegas\u201d custa dinheiro todos os dias",
+    "problem.p":"Papel, Excel e software genérico não foram feitos para o chão de fábrica. O resultado é sempre o mesmo.",
+    "problem.i1h":"O telefone toca antes de tu saberes","problem.i1p":"É o cliente a perguntar pela encomenda atrasada — e é a primeira vez que ouves falar do atraso.",
+    "problem.i2h":"A máquina para às 18h de sexta","problem.i2p":"Falta material para amanhã, e só descobres agora — quando já não há tempo para resolver.",
+    "problem.i3h":"Trabalhas mais e ganhas na mesma","problem.i3p":"Sem dados reais, cada orçamento é uma aposta às cegas — e às vezes a aposta perde-se.",
+    "diff.eyebrow":"A Diferença",
+    "diff.h2full":"Não perguntámos a oficinas<br>o que elas precisavam.<br><span class=\"hotgrad\">Já geríamos uma — e construímos o que nos fazia falta.</span>",
+    "diff.cite":"— Fundador do MetalPro, dono de empresa de metalomecânica",
+    "photo.eyebrow":"A Prova","photo.h2":"Não é uma maquete. É a nossa oficina.",
+    "photo.label":"[ Espaço reservado para foto real da oficina — chão de fábrica, máquinas, equipa em ação ]",
+    "photo.caption":"// esquema ilustrativo — a tua oficina real fica ainda melhor aqui",
+    "feat.eyebrow":"Funcionalidades","feat.h2":"Tudo o que uma oficina precisa, num só sítio","feat.p":"Sem integrações complicadas nem múltiplas ferramentas soltas.",
+    "feat.f1h":"Ordens de Fabrico e Reparação","feat.f1p":"Sabe sempre o que está atrasado antes de o cliente ligar a perguntar.",
+    "feat.f2h":"Rastreio por QR","feat.f2p":"Cada peça acompanhada operação a operação, lida com a câmara do telemóvel.",
+    "feat.f3h":"Stock e Consumíveis","feat.f3p":"Alertas antes de faltar, não depois.",
+    "feat.f4h":"Orçamentos com custo real","feat.f4p":"Calculadora de remoção de material ligada ao tarifário — preço com dados, não com \u201cachismo\u201d.",
+    "feat.f5h":"Relatórios que decidem por si","feat.f5p":"Produtividade, faturação, clientes-topo — sem exportar nada para Excel.",
+    "feat.f6h":"Assistente de IA sempre presente","feat.f6p":"Dúvidas respondidas na hora, dentro da própria app — sem esperar por suporte.",
+    "story.eyebrow":"Prova, Não Promessa",
+    "story.p1":"O MetalPro corre todos os dias na oficina que o criou — não é uma demonstração, é a ferramenta de trabalho real.",
+    "story.p2":"Os primeiros clientes têm acesso direto a quem construiu o produto, e ao histórico completo de tudo o que já foi corrigido e melhorado com uso real.",
+    "story.s1":"Idiomas","story.s2":"Rastreio","story.s3":"Fornecedor só",
+    "story.eyebrow2":"Como Começar",
+    "story.step1h":"Cria a tua oficina","story.step1p":"Email e password — sem cartão de crédito, sem comerciais.",
+    "story.step2h":"O assistente de IA guia-te","story.step2p":"Configuração assistida em tempo real, no teu idioma.",
+    "story.step3h":"A tua equipa entra por PIN","story.step3p":"Cada operário com o seu acesso, no chão de fábrica.",
+    "price.eyebrow":"Preços","price.h2":"Um preço por oficina, não por pessoa","price.p":"Não penalizamos quem quer que toda a equipa use a ferramenta.",
+    "price.plan1":"Arranque","price.per1":" · 30 dias","price.f1":"Todos os módulos incluídos","price.f2":"Utilizadores ilimitados","price.f3":"Assistente de IA incluído","price.cta1":"Experimentar Grátis",
+    "price.plan2":"Oficina","price.per2":" /mês","price.f4":"Tudo do plano Arranque","price.f5":"Suporte prioritário","price.f6":"Exportação SAF-T/CSV","price.cta2":"Começar Agora",
+    "final.eyebrow":"Pronto?","final.h2full":"A tua oficina já é boa no que faz.<br><span class=\"hotgrad\">Agora deixa que se veja nos números.</span>",
+    "final.p":"Cria a tua conta em menos de 2 minutos. Sem comerciais, sem cartão de crédito.","final.cta":"Começar Agora →",
+    "footer.tag":"Feito dentro de uma oficina real."
+  },
+  en: {
+    "nav.problema":"The Problem","nav.diferenca":"The Difference","nav.funcionalidades":"Features","nav.precos":"Pricing","nav.cta":"Get Started",
+    "hero.badge":"RUNNING IN A REAL WORKSHOP",
+    "hero.h1full":"Your workshop already knows<br>how to make perfect parts.<br><span class=\"hotgrad\">Now it'll know how to run itself like one.</span>",
+    "hero.lead":"MetalPro was born inside a real metalworking company — not in a boardroom. Every feature solves a problem that already burned on the shop floor.",
+    "hero.cta1":"Get Started →","hero.cta2":"See how it works",
+    "hero.proof1":"languages supported","hero.proof2":"QR-based tracking","hero.proof3":"battle-tested in a real shop",
+    "hero.tag":"IN PRODUCTION","hero.cliente":"Client","hero.peca":"Part","hero.scan":"QR scanned · CNC Lathe 01",
+    "problem.eyebrow":"The Problem","problem.h2":"Running a workshop \u201cblind\u201d costs money every day",
+    "problem.p":"Paper, spreadsheets and generic software weren't built for the shop floor. The result is always the same.",
+    "problem.i1h":"The phone rings before you know","problem.i1p":"It's the client asking about the late order — and it's the first you've heard of the delay.",
+    "problem.i2h":"The machine stops at 6pm on a Friday","problem.i2p":"You're out of material for tomorrow, and you only find out now — too late to fix it.",
+    "problem.i3h":"You work harder and earn the same","problem.i3p":"Without real data, every quote is a blind bet — and sometimes the bet loses.",
+    "diff.eyebrow":"The Difference",
+    "diff.h2full":"We didn't ask workshops<br>what they needed.<br><span class=\"hotgrad\">We were already running one — and built what we were missing.</span>",
+    "diff.cite":"— MetalPro founder, metalworking business owner",
+    "photo.eyebrow":"The Proof","photo.h2":"This isn't a mockup. It's our workshop.",
+    "photo.label":"[ Reserved space for a real workshop photo — shop floor, machines, team in action ]",
+    "photo.caption":"// illustrative diagram — your real workshop looks even better here",
+    "feat.eyebrow":"Features","feat.h2":"Everything a workshop needs, in one place","feat.p":"No complicated integrations, no scattered tools.",
+    "feat.f1h":"Work & Repair Orders","feat.f1p":"Always know what's late before the client calls to ask.",
+    "feat.f2h":"QR-based Tracking","feat.f2p":"Every part tracked operation by operation, scanned with a phone camera.",
+    "feat.f3h":"Stock & Consumables","feat.f3p":"Alerts before it runs out, not after.",
+    "feat.f4h":"Quotes with real cost","feat.f4p":"Material removal calculator linked to your price list — pricing from data, not guesswork.",
+    "feat.f5h":"Reports that decide for you","feat.f5p":"Productivity, invoicing, top clients — no exporting to Excel.",
+    "feat.f6h":"Always-on AI assistant","feat.f6p":"Questions answered instantly, inside the app — no waiting for support.",
+    "story.eyebrow":"Proof, Not Promises",
+    "story.p1":"MetalPro runs every day in the workshop that created it — it's not a demo, it's the real working tool.",
+    "story.p2":"Early customers get direct access to the people who built the product, and the full history of everything already fixed and improved through real use.",
+    "story.s1":"Languages","story.s2":"Tracking","story.s3":"Single vendor",
+    "story.eyebrow2":"How to Start",
+    "story.step1h":"Create your workshop","story.step1p":"Email and password — no credit card, no salespeople.",
+    "story.step2h":"The AI assistant guides you","story.step2p":"Real-time guided setup, in your language.",
+    "story.step3h":"Your team logs in by PIN","story.step3p":"Every operator with their own access, on the shop floor.",
+    "price.eyebrow":"Pricing","price.h2":"One price per workshop, not per person","price.p":"We don't penalize you for wanting your whole team to use it.",
+    "price.plan1":"Starter","price.per1":" · 30 days","price.f1":"All modules included","price.f2":"Unlimited users","price.f3":"AI assistant included","price.cta1":"Try It Free",
+    "price.plan2":"Workshop","price.per2":" /month","price.f4":"Everything in Starter","price.f5":"Priority support","price.f6":"SAF-T/CSV export","price.cta2":"Get Started",
+    "final.eyebrow":"Ready?","final.h2full":"Your workshop is already great at what it does.<br><span class=\"hotgrad\">Now let the numbers show it.</span>",
+    "final.p":"Create your account in under 2 minutes. No salespeople, no credit card.","final.cta":"Get Started →",
+    "footer.tag":"Built inside a real workshop."
+  }
+};
+
+function applyLang(lang){
+  document.documentElement.lang = lang;
+  document.documentElement.setAttribute("data-lang", lang);
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key = el.getAttribute("data-i18n");
+    const val = I18N[lang]?.[key];
+    if (val !== undefined) el.innerHTML = val;
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>{
+    const key = el.getAttribute("data-i18n-html");
+    const val = I18N[lang]?.[key];
+    if (val !== undefined) el.innerHTML = val;
+  });
+}
+document.getElementById("langSwitch").addEventListener("change", e=>applyLang(e.target.value));
+applyLang("pt");
+
+const OPS = [
+  {name:"Torno CNC 01", state:"done", time:"0:42"},
+  {name:"Fresadora CNC", state:"active", time:"0:18"},
+  {name:"Controlo Qualidade", state:"pending", time:"—"},
+  {name:"Embalagem", state:"pending", time:"—"},
+];
+function renderOps(){
+  const list = document.getElementById("opsList");
+  list.innerHTML = OPS.map(op=>`
+    <div class="op-line ${op.state}">
+      <div class="op-dot ${op.state==='done'?'done':op.state==='active'?'active':''}"></div>
+      <div class="op-name">${op.name}</div>
+      <div class="op-timer">${op.time}</div>
+    </div>`).join("");
+}
+renderOps();
+let seconds = 18;
+setInterval(()=>{
+  seconds++;
+  const m = Math.floor(seconds/60), s = seconds%60;
+  OPS[1].time = m+":"+String(s).padStart(2,"0");
+  renderOps();
+  const pct = Math.min(90, 38 + Math.floor(seconds/3));
+  document.getElementById("progressFill").style.width = pct+"%";
+}, 1000);
+
+/* ---- Spark particle system (hero) ---- */
+function initSparks(canvasId, opts){
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+  let w,h;
+  function resize(){
+    w = canvas.width = canvas.offsetWidth * devicePixelRatio;
+    h = canvas.height = canvas.offsetHeight * devicePixelRatio;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+  const particles = [];
+  const colors = ["#FF8A1E","#FFD166","#C7361B"];
+  function spawn(){
+    const originX = opts.originX ? opts.originX() : w*0.5;
+    const originY = opts.originY ? opts.originY() : h*0.5;
+    particles.push({
+      x: originX, y: originY,
+      vx: (Math.random()-0.5)*3.2*devicePixelRatio,
+      vy: (Math.random()-1.6)*3.2*devicePixelRatio,
+      life: 0, maxLife: 40+Math.random()*40,
+      size: (1+Math.random()*2)*devicePixelRatio,
+      color: colors[Math.floor(Math.random()*colors.length)]
+    });
+  }
+  function tick(){
+    ctx.clearRect(0,0,w,h);
+    if (Math.random() < opts.rate) spawn();
+    for (let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.04*devicePixelRatio; p.life++;
+      const alpha = 1 - p.life/p.maxLife;
+      if (alpha <= 0){ particles.splice(i,1); continue; }
+      ctx.globalAlpha = Math.max(0,alpha);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+function initSvgSparks(){
+  const g = document.getElementById("latheSparks");
+  if (!g) return;
+  const ns = "http://www.w3.org/2000/svg";
+  const originX = 347, originY = 222;
+  setInterval(()=>{
+    const dot = document.createElementNS(ns, "circle");
+    const angle = Math.random()*Math.PI - Math.PI/2;
+    const dist = 18 + Math.random()*22;
+    dot.setAttribute("cx", originX);
+    dot.setAttribute("cy", originY);
+    dot.setAttribute("r", 1.6+Math.random()*1.4);
+    dot.setAttribute("fill", Math.random()>0.5 ? "#FFD166" : "#FF8A1E");
+    g.appendChild(dot);
+    let t = 0;
+    const dx = Math.cos(angle)*dist, dy = -Math.abs(Math.sin(angle)*dist);
+    const anim = setInterval(()=>{
+      t += 0.08;
+      if (t >= 1){ g.removeChild(dot); clearInterval(anim); return; }
+      dot.setAttribute("cx", originX + dx*t);
+      dot.setAttribute("cy", originY + dy*t + 14*t*t);
+      dot.setAttribute("opacity", 1-t);
+    }, 30);
+  }, 140);
+}
+initSvgSparks();
+
+initSparks("sparkCanvas", { rate:0.6, originX:()=>document.getElementById("sparkCanvas").offsetWidth*0.42, originY:()=>document.getElementById("sparkCanvas").offsetHeight*0.35 });
+</script>
+</body>
+</html>
