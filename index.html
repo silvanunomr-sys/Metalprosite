@@ -492,8 +492,20 @@ function applyLang(lang){
     if (val !== undefined) el.innerHTML = val;
   });
 }
-document.getElementById("langSwitch").addEventListener("change", e=>applyLang(e.target.value));
-applyLang("pt");
+document.getElementById("langSwitch").addEventListener("change", e=>{
+  try { localStorage.setItem('metalpro-site-lang', e.target.value); } catch(e){}
+  applyLang(e.target.value);
+});
+// Auto-detect language, with localStorage persistence
+(function initLang() {
+  let saved = null;
+  try { saved = localStorage.getItem('metalpro-site-lang'); } catch(e) {}
+  if (saved && I18N[saved]) { applyLang(saved); document.getElementById("langSwitch").value = saved; return; }
+  const nav = (navigator.language || 'en').toLowerCase();
+  const lang = nav.startsWith('pt') ? 'pt' : 'en';
+  applyLang(lang);
+  document.getElementById("langSwitch").value = lang;
+})();
 
 const OPS = [
   {name:"Torno CNC 01", state:"done", time:"0:42"},
